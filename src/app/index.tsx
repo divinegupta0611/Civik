@@ -3,17 +3,30 @@ import {
   ActivityIndicator,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-const OPENWEATHER_API_KEY = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY;;
+const OPENWEATHER_API_KEY =
+  process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY;
 
 export default function HomeScreen() {
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [weather, setWeather] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const router = useRouter();
+
+  const [location, setLocation] =
+    useState<Location.LocationObject | null>(null);
+
+  const [weather, setWeather] =
+    useState<any>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState('');
 
   useEffect(() => {
     getLocationAndWeather();
@@ -40,8 +53,11 @@ export default function HomeScreen() {
 
       setLocation(currentLocation);
 
-      const latitude = currentLocation.coords.latitude;
-      const longitude = currentLocation.coords.longitude;
+      const latitude =
+        currentLocation.coords.latitude;
+
+      const longitude =
+        currentLocation.coords.longitude;
 
       console.log('Latitude:', latitude);
       console.log('Longitude:', longitude);
@@ -52,7 +68,9 @@ export default function HomeScreen() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch weather data');
+        throw new Error(
+          'Failed to fetch weather data'
+        );
       }
 
       const data = await response.json();
@@ -63,7 +81,9 @@ export default function HomeScreen() {
       setWeather(data);
     } catch (err) {
       console.error(err);
-      setError('Unable to fetch location or weather.');
+      setError(
+        'Unable to fetch location or weather.'
+      );
     } finally {
       setLoading(false);
     }
@@ -72,11 +92,24 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
+
+        <TouchableOpacity
+          style={styles.userButton}
+          onPress={() => router.push('/signup')}
+        >
+          <Ionicons
+            name="person-circle-outline"
+            size={42}
+            color="black"
+          />
+        </TouchableOpacity>
+
         <ActivityIndicator size="large" />
 
         <Text style={styles.loadingText}>
           Getting your location...
         </Text>
+
       </View>
     );
   }
@@ -84,18 +117,50 @@ export default function HomeScreen() {
   if (error) {
     return (
       <View style={styles.container}>
-        <Text style={styles.error}>{error}</Text>
+
+        <TouchableOpacity
+          style={styles.userButton}
+          onPress={() => router.push('/signup')}
+        >
+          <Ionicons
+            name="person-circle-outline"
+            size={42}
+            color="black"
+          />
+        </TouchableOpacity>
+
+        <Text style={styles.error}>
+          {error}
+        </Text>
+
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Civik</Text>
+
+      <TouchableOpacity
+        style={styles.userButton}
+        onPress={() => router.push('/signup')}
+      >
+        <Ionicons
+          name="person-circle-outline"
+          size={42}
+          color="black"
+        />
+      </TouchableOpacity>
+
+      <Text style={styles.title}>
+        Welcome to Civik
+      </Text>
 
       {location && (
         <View style={styles.card}>
-          <Text style={styles.heading}>Your Location</Text>
+
+          <Text style={styles.heading}>
+            Your Location
+          </Text>
 
           <Text>
             Latitude: {location.coords.latitude}
@@ -104,11 +169,13 @@ export default function HomeScreen() {
           <Text>
             Longitude: {location.coords.longitude}
           </Text>
+
         </View>
       )}
 
       {weather && (
         <View style={styles.card}>
+
           <Text style={styles.heading}>
             {weather.name}
           </Text>
@@ -122,14 +189,19 @@ export default function HomeScreen() {
           </Text>
 
           <Text>
-            Feels like {Math.round(weather.main.feels_like)}°C
+            Feels like{' '}
+            {Math.round(
+              weather.main.feels_like
+            )}°C
           </Text>
 
           <Text>
             Humidity: {weather.main.humidity}%
           </Text>
+
         </View>
       )}
+
     </View>
   );
 }
@@ -140,6 +212,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+
+  userButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 100,
   },
 
   title: {

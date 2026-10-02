@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,19 +16,18 @@ import { File } from 'expo-file-system';
 export default function PhotoPreviewScreen() {
   const router = useRouter();
 
-  const { photoUri } = useLocalSearchParams<{
+  const { photoUri, capturedAt } = useLocalSearchParams<{
     photoUri?: string;
+    capturedAt?: string;
   }>();
 
   // Expo Router automatically decodes the URL parameter once.
-  // We decode it one more time to restore the original file URI.
+  // Decode once more to restore the original file URI.
   const decodedPhotoUri = photoUri
     ? decodeURIComponent(photoUri)
     : null;
 
-  const [validating, setValidating] =
-    useState(false);
-
+  const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] =
     useState<any>(null);
 
@@ -53,228 +53,217 @@ export default function PhotoPreviewScreen() {
   // --------------------------------
 
   const handleValidate = async () => {
-  if (!decodedPhotoUri) {
-    Alert.alert(
-      'Error',
-      'No photo available.'
-    );
-
-    return;
-  }
-
-  try {
-    setValidating(true);
-    setValidationResult(null);
-
-    console.log(
-      'Starting image validation...'
-    );
-
-    // --------------------------------
-    // Create Expo File object
-    // --------------------------------
-
-    const file = new File(decodedPhotoUri);
-
-    console.log(
-      'Image URI:',
-      file.uri
-    );
-
-    console.log(
-      'Image exists:',
-      file.exists
-    );
-
-    console.log(
-      'Image size:',
-      file.size,
-      'bytes'
-    );
-
-    // --------------------------------
-    // Check whether file exists
-    // --------------------------------
-
-    if (!file.exists) {
-      throw new Error(
-        'The photo file could not be found.'
+    if (!decodedPhotoUri) {
+      Alert.alert(
+        'Error',
+        'No photo available.'
       );
+      return;
     }
 
-    if (!file.size || file.size <= 0) {
-      throw new Error(
-        'The photo file is empty.'
+    try {
+      setValidating(true);
+      setValidationResult(null);
+
+      console.log(
+        'Starting image validation...'
       );
-    }
 
-    // --------------------------------
-    // Create FormData
-    // --------------------------------
+      // --------------------------------
+      // Create Expo File object
+      // --------------------------------
 
-    console.log(
-      'Creating FormData...'
-    );
+      const file = new File(decodedPhotoUri);
 
-    const formData =
-      new FormData();
+      console.log(
+        'Image URI:',
+        file.uri
+      );
 
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT convert the image to Base64.
-     * Do NOT create a Blob manually.
-     *
-     * Expo's File object can be placed
-     * directly into FormData.
-     */
+      console.log(
+        'Image exists:',
+        file.exists
+      );
 
-    formData.append(
-      'image',
-      file as any
-    );
+      console.log(
+        'Image size:',
+        file.size,
+        'bytes'
+      );
 
-    console.log(
-      'Image added to FormData.'
-    );
+      // --------------------------------
+      // Check whether file exists
+      // --------------------------------
 
-    // --------------------------------
-    // Send image to backend
-    // --------------------------------
-
-    console.log(
-      'Sending image to Civik backend...'
-    );
-
-    const response = await fetch(
-      'http://192.168.1.30:5000/api/image/validate',
-      {
-        method: 'POST',
-
-        body: formData,
-
-        headers: {
-          Accept:
-            'application/json',
-        },
+      if (!file.exists) {
+        throw new Error(
+          'The photo file could not be found.'
+        );
       }
-    );
 
-    console.log(
-      'Backend status:',
-      response.status
-    );
+      if (!file.size || file.size <= 0) {
+        throw new Error(
+          'The photo file is empty.'
+        );
+      }
 
-    // --------------------------------
-    // Read backend response
-    // --------------------------------
+      // --------------------------------
+      // Create FormData
+      // --------------------------------
 
-    const data =
-      await response.json();
+      console.log(
+        'Creating FormData...'
+      );
 
-    console.log(
-      'Validation result:',
-      data
-    );
+      const formData = new FormData();
 
-    // --------------------------------
-    // Backend error
-    // --------------------------------
+      /*
+       * IMPORTANT:
+       *
+       * Do NOT convert the image to Base64.
+       * Do NOT create a Blob manually.
+       *
+       * Expo's File object can be placed
+       * directly into FormData.
+       */
 
-    if (!response.ok) {
+      formData.append(
+        'image',
+        file as any
+      );
+
+      console.log(
+        'Image added to FormData.'
+      );
+
+      // --------------------------------
+      // Send image to backend
+      // --------------------------------
+
+      console.log(
+        'Sending image to Civik backend...'
+      );
+
+      const response = await fetch(
+        'http://192.168.1.30:5000/api/image/validate',
+        {
+          method: 'POST',
+
+          body: formData,
+
+          headers: {
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      console.log(
+        'Backend status:',
+        response.status
+      );
+
+      // --------------------------------
+      // Read backend response
+      // --------------------------------
+
+      const data =
+        await response.json();
+
+      console.log(
+        'Validation result:',
+        data
+      );
+
+      // --------------------------------
+      // Backend error
+      // --------------------------------
+
+      if (!response.ok) {
+        Alert.alert(
+          'Validation Error',
+          data.message ||
+            'Unable to validate the image.'
+        );
+
+        return;
+      }
+
+      // --------------------------------
+      // Save validation result
+      // --------------------------------
+
+      setValidationResult(data);
+
+      // --------------------------------
+      // Validation failed
+      // --------------------------------
+
+      if (!data.valid) {
+        Alert.alert(
+          'Civic Issue Not Detected',
+          data.reason ||
+            'This image does not appear to show a reportable civic issue.'
+        );
+
+        return;
+      }
+
+      // --------------------------------
+      // Validation passed
+      // --------------------------------
+
+      console.log(
+        'Civic issue detected successfully.'
+      );
+
+      console.log(
+        'Issue type:',
+        data.issueType
+      );
+
+      console.log(
+        'Confidence:',
+        data.confidence
+      );
+
+      console.log(
+        'Severity:',
+        data.severity
+      );
+
+      Alert.alert(
+        'Civic Issue Detected',
+        data.reason ||
+          'This image appears to show a reportable civic issue.'
+      );
+
+    } catch (error) {
+      console.error(
+        'Image validation error:',
+        error
+      );
+
       Alert.alert(
         'Validation Error',
-        data.message ||
-          'Unable to validate the image.'
+        error instanceof Error
+          ? error.message
+          : 'Something went wrong while validating the image.'
       );
 
-      return;
+    } finally {
+      setValidating(false);
     }
-
-    // --------------------------------
-    // Save validation result
-    // --------------------------------
-
-    setValidationResult(data);
-
-    // --------------------------------
-    // Validation failed
-    // --------------------------------
-
-    if (!data.valid) {
-      Alert.alert(
-        'Civic Issue Not Detected',
-        data.reason ||
-          'This image does not appear to show a reportable civic issue.'
-      );
-
-      return;
-    }
-
-    // --------------------------------
-    // Validation passed
-    // --------------------------------
-
-    console.log(
-      'Civic issue detected successfully.'
-    );
-
-    console.log(
-      'Issue type:',
-      data.issueType
-    );
-
-    console.log(
-      'Confidence:',
-      data.confidence
-    );
-
-    console.log(
-      'Severity:',
-      data.severity
-    );
-
-    Alert.alert(
-      'Civic Issue Detected',
-      data.reason ||
-        'This image appears to show a reportable civic issue.'
-    );
-
-  } catch (error) {
-    console.error(
-      'Image validation error:',
-      error
-    );
-
-    Alert.alert(
-      'Validation Error',
-      error instanceof Error
-        ? error.message
-        : 'Something went wrong while validating the image.'
-    );
-
-  } finally {
-    setValidating(false);
-  }
-};
+  };
 
   // --------------------------------
   // Continue to Report Form
   // --------------------------------
 
   const handleUpload = () => {
-    if (!decodedPhotoUri) {
-      Alert.alert(
-        'Error',
-        'No photo available.'
-      );
-
-      return;
-    }
-
-    // Upload cannot continue unless
-    // Gemini validation passed.
-    if (!validationResult?.valid) {
+    if (
+      !validationResult?.valid ||
+      !decodedPhotoUri
+    ) {
       return;
     }
 
@@ -291,6 +280,10 @@ export default function PhotoPreviewScreen() {
       params: {
         photoUri: encodedUri,
 
+        capturedAt:
+          capturedAt ||
+          new Date().toISOString(),
+
         issueType:
           validationResult.issueType,
 
@@ -301,6 +294,9 @@ export default function PhotoPreviewScreen() {
 
         severity:
           validationResult.severity,
+
+        reason:
+          validationResult.reason,
       },
     });
   };
@@ -314,255 +310,314 @@ export default function PhotoPreviewScreen() {
     !validating;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        Preview
-      </Text>
+    <View style={styles.screen}>
 
-      {decodedPhotoUri ? (
-        <Image
-          source={{
-            uri: decodedPhotoUri,
-          }}
-          style={styles.image}
-          onLoad={() => {
-            console.log(
-              'IMAGE LOADED SUCCESSFULLY'
-            );
-          }}
-          onError={(error) => {
-            console.log(
-              'IMAGE ERROR:',
-              error.nativeEvent.error
-            );
-          }}
-        />
-      ) : (
-        <View
-          style={
-            styles.noPhotoContainer
-          }
-        >
-          <Text
-            style={
-              styles.noPhotoText
-            }
-          >
-            No photo available
-          </Text>
-        </View>
-      )}
-
-      {/* -------------------------------- */}
-      {/* Validation Loading */}
-      {/* -------------------------------- */}
-
-      {validating && (
-        <View
-          style={
-            styles.validationContainer
-          }
-        >
-          <ActivityIndicator
-            size="large"
-          />
-
-          <Text
-            style={
-              styles.validationText
-            }
-          >
-            Analyzing image...
-          </Text>
-
-          <Text
-            style={
-              styles.validationSubtext
-            }
-          >
-            Checking whether this photo
-            shows a genuine civic issue.
-          </Text>
-        </View>
-      )}
-
-      {/* -------------------------------- */}
-      {/* Validation Passed */}
-      {/* -------------------------------- */}
-
-      {!validating &&
-        validationResult?.valid === true && (
-          <View
-            style={
-              styles.successContainer
-            }
-          >
-            <Text
-              style={
-                styles.successTitle
-              }
-            >
-              ✓ Civic issue detected
-            </Text>
-
-            <Text
-              style={styles.resultText}
-            >
-              Type:{' '}
-              {validationResult.issueType}
-            </Text>
-
-            <Text
-              style={styles.resultText}
-            >
-              Confidence:{' '}
-              {Math.round(
-                validationResult.confidence *
-                  100
-              )}
-              %
-            </Text>
-
-            <Text
-              style={styles.resultText}
-            >
-              Severity:{' '}
-              {validationResult.severity}
-            </Text>
-
-            <Text
-              style={styles.reasonText}
-            >
-              {validationResult.reason}
-            </Text>
-          </View>
-        )}
-
-      {/* -------------------------------- */}
-      {/* Validation Failed */}
-      {/* -------------------------------- */}
-
-      {!validating &&
-        validationResult &&
-        validationResult.valid === false && (
-          <View
-            style={
-              styles.failureContainer
-            }
-          >
-            <Text
-              style={
-                styles.failureTitle
-              }
-            >
-              ✕ Civic issue not detected
-            </Text>
-
-            <Text
-              style={styles.reasonText}
-            >
-              {validationResult.reason ||
-                'The image does not appear to show a reportable civic issue.'}
-            </Text>
-          </View>
-        )}
-
-      {/* -------------------------------- */}
-      {/* Buttons */}
-      {/* -------------------------------- */}
-
-      <View
-        style={styles.buttonContainer}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={
+          styles.scrollContent
+        }
+        showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity
-          style={[
-            styles.button,
-            styles.retakeButton,
-            validating &&
-              styles.disabledButton,
-          ]}
-          onPress={handleRetake}
-          disabled={validating}
-        >
-          <Text
-            style={styles.buttonText}
+
+        {/* -------------------------------- */}
+        {/* Title */}
+        {/* -------------------------------- */}
+
+        <Text style={styles.title}>
+          Preview
+        </Text>
+
+        {/* -------------------------------- */}
+        {/* Image */}
+        {/* -------------------------------- */}
+
+        {decodedPhotoUri ? (
+          <Image
+            source={{
+              uri: decodedPhotoUri,
+            }}
+            style={styles.image}
+            onLoad={() => {
+              console.log(
+                'IMAGE LOADED SUCCESSFULLY'
+              );
+            }}
+            onError={(error) => {
+              console.log(
+                'IMAGE ERROR:',
+                error.nativeEvent.error
+              );
+            }}
+          />
+        ) : (
+          <View
+            style={
+              styles.noPhotoContainer
+            }
           >
-            Retake
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={
+                styles.noPhotoText
+              }
+            >
+              No photo available
+            </Text>
+          </View>
+        )}
 
-        {/* Validate */}
+        {/* -------------------------------- */}
+        {/* Validation Loading */}
+        {/* -------------------------------- */}
 
-        {!validationResult?.valid && (
+        {validating && (
+          <View
+            style={
+              styles.validationContainer
+            }
+          >
+
+            <ActivityIndicator
+              size="large"
+            />
+
+            <Text
+              style={
+                styles.validationText
+              }
+            >
+              Analyzing image...
+            </Text>
+
+            <Text
+              style={
+                styles.validationSubtext
+              }
+            >
+              Checking whether this photo
+              shows a genuine civic issue.
+            </Text>
+
+          </View>
+        )}
+
+        {/* -------------------------------- */}
+        {/* Validation Passed */}
+        {/* -------------------------------- */}
+
+        {!validating &&
+          validationResult?.valid === true && (
+            <View
+              style={
+                styles.successContainer
+              }
+            >
+
+              <Text
+                style={
+                  styles.successTitle
+                }
+              >
+                ✓ Civic issue detected
+              </Text>
+
+              <Text
+                style={styles.resultText}
+              >
+                Type:{' '}
+                {validationResult.issueType}
+              </Text>
+
+              <Text
+                style={styles.resultText}
+              >
+                Confidence:{' '}
+                {Math.round(
+                  validationResult.confidence *
+                    100
+                )}
+                %
+              </Text>
+
+              <Text
+                style={styles.resultText}
+              >
+                Severity:{' '}
+                {validationResult.severity}
+              </Text>
+
+              <Text
+                style={styles.reasonText}
+              >
+                {validationResult.reason}
+              </Text>
+
+            </View>
+          )}
+
+        {/* -------------------------------- */}
+        {/* Validation Failed */}
+        {/* -------------------------------- */}
+
+        {!validating &&
+          validationResult &&
+          validationResult.valid === false && (
+            <View
+              style={
+                styles.failureContainer
+              }
+            >
+
+              <Text
+                style={
+                  styles.failureTitle
+                }
+              >
+                ✕ Civic issue not detected
+              </Text>
+
+              <Text
+                style={styles.reasonText}
+              >
+                {validationResult.reason ||
+                  'The image does not appear to show a reportable civic issue.'}
+              </Text>
+
+            </View>
+          )}
+
+        {/* -------------------------------- */}
+        {/* Buttons */}
+        {/* -------------------------------- */}
+
+        <View
+          style={styles.buttonContainer}
+        >
+
+          {/* Retake */}
+
           <TouchableOpacity
             style={[
               styles.button,
-              styles.validateButton,
+              styles.retakeButton,
               validating &&
                 styles.disabledButton,
             ]}
-            onPress={handleValidate}
+            onPress={handleRetake}
             disabled={validating}
-          >
-            {validating ? (
-              <ActivityIndicator
-                color="white"
-              />
-            ) : (
-              <Text
-                style={
-                  styles.buttonText
-                }
-              >
-                Validate
-              </Text>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Upload */}
-
-        {validationResult?.valid && (
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.uploadButton,
-              !uploadEnabled &&
-                styles.disabledButton,
-            ]}
-            onPress={handleUpload}
-            disabled={!uploadEnabled}
           >
             <Text
               style={styles.buttonText}
             >
-              Upload
+              Retake
             </Text>
           </TouchableOpacity>
-        )}
-      </View>
+
+          {/* Validate */}
+
+          {!validationResult?.valid && (
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.validateButton,
+                validating &&
+                  styles.disabledButton,
+              ]}
+              onPress={handleValidate}
+              disabled={validating}
+            >
+              {validating ? (
+                <ActivityIndicator
+                  color="white"
+                />
+              ) : (
+                <Text
+                  style={styles.buttonText}
+                >
+                  Validate
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Upload */}
+
+          {validationResult?.valid && (
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.uploadButton,
+                !uploadEnabled &&
+                  styles.disabledButton,
+              ]}
+              onPress={handleUpload}
+              disabled={!uploadEnabled}
+            >
+              <Text
+                style={styles.buttonText}
+              >
+                Continue
+              </Text>
+            </TouchableOpacity>
+          )}
+
+        </View>
+
+        {/* Extra bottom space so buttons aren't
+            stuck against the bottom of the screen */}
+
+        <View style={styles.bottomSpace} />
+
+      </ScrollView>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+
+  // --------------------------------
+  // Main screen
+  // --------------------------------
+
+  screen: {
     flex: 1,
-    padding: 20,
     backgroundColor: 'white',
   },
+
+  // --------------------------------
+  // ScrollView
+  // --------------------------------
+
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    padding: 20,
+    paddingTop: 40,
+    paddingBottom: 30,
+  },
+
+  // --------------------------------
+  // Title
+  // --------------------------------
 
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginTop: 40,
     marginBottom: 20,
     textAlign: 'center',
   },
 
+  // --------------------------------
+  // Image
+  // --------------------------------
+
   image: {
     width: '100%',
-    height: 450,
+    height: 400,
     borderRadius: 15,
     resizeMode: 'contain',
     backgroundColor: '#eee',
@@ -570,7 +625,7 @@ const styles = StyleSheet.create({
 
   noPhotoContainer: {
     width: '100%',
-    height: 450,
+    height: 400,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#eee',
@@ -581,6 +636,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
   },
+
+  // --------------------------------
+  // Validation loading
+  // --------------------------------
 
   validationContainer: {
     marginTop: 15,
@@ -601,7 +660,12 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 5,
+    lineHeight: 20,
   },
+
+  // --------------------------------
+  // Success
+  // --------------------------------
 
   successContainer: {
     marginTop: 15,
@@ -618,14 +682,19 @@ const styles = StyleSheet.create({
 
   resultText: {
     fontSize: 15,
-    marginTop: 3,
+    marginTop: 5,
   },
 
   reasonText: {
     fontSize: 14,
     marginTop: 8,
     color: '#555',
+    lineHeight: 20,
   },
+
+  // --------------------------------
+  // Failure
+  // --------------------------------
 
   failureContainer: {
     marginTop: 15,
@@ -640,6 +709,10 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
 
+  // --------------------------------
+  // Buttons
+  // --------------------------------
+
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -649,9 +722,12 @@ const styles = StyleSheet.create({
 
   button: {
     flex: 1,
-    padding: 16,
+    minHeight: 54,
+    paddingVertical: 15,
+    paddingHorizontal: 10,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
   retakeButton: {
@@ -674,5 +750,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 17,
     fontWeight: 'bold',
+  },
+
+  // --------------------------------
+  // Bottom spacing
+  // --------------------------------
+
+  bottomSpace: {
+    height: 30,
   },
 });
